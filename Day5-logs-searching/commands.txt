@@ -1,0 +1,48 @@
+# ============================
+# Day 5 - Log Monitoring Commands
+# ============================
+
+# View ssh login attempts
+sudo journalctl -u ssh
+
+# Monitor ssh logs in real time
+sudo journalctl -u ssh -f
+
+# Show failed ssh login attempts
+sudo journalctl _COMM=sshd | grep "Failed password"
+
+# Count failed ssh login attempts
+sudo journalctl _COMM=sshd | grep "Failed password" | wc -l
+
+# Show successful logins
+sudo journalctl _COMM=sshd | grep "Accepted password"
+
+# Track suspicious IPs from failed ssh attempts
+sudo journalctl _COMM=sshd | grep "Failed password" | awk '{print $(NF-3)}' | sort | uniq -c | sort -nr
+
+# View sudo usage
+sudo journalctl _COMM=sudo
+
+# ============================
+# Bonus: Use ccze for colored logs
+# ============================
+
+# Install ccze
+sudo apt install ccze -y
+
+# Use ccze with ssh logs
+sudo journalctl -u ssh -f | ccze -A
+
+# Use ccze with sudo logs
+sudo journalctl _COMM=sudo | ccze -A
+
+# ============================
+# Alias for faster use
+# ============================
+
+# Add alias to bashrc
+echo "alias jssh='sudo journalctl -u ssh -f | ccze -A'" >> ~/.bashrc
+source ~/.bashrc
+
+# Now run logs with:
+jssh
