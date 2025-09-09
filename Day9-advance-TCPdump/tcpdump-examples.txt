@@ -1,0 +1,6 @@
+# Example tcpdump outputs
+
+10.0.2.15.34316 > 34.160.144.191.443: Flags [.], cksum 0xbf88 (incorrect -> 0xa001), ack 47, win 64015, length 0
+10.0.2.15.32840 > 151.101.241.91.443: Flags [P.], cksum 0x9518 (incorrect -> 0x4558), seq 2805507812:2805507858, ack 2170233334, win 65535, length 46
+151.101.241.91.443 > 10.0.2.15.32840: Flags [.], cksum 0xa764 (correct), ack 46, win 65535, length 0
+151.101.241.91.443 > 10.0.2.15.32840: Flags [P.], cksum 0x8318 (correct), seq 1:47, ack 46, win 65535, length 46
