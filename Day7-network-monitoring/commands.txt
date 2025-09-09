@@ -1,0 +1,28 @@
+# Show network interfaces
+ip a
+
+# Show listening ports and services
+ss -tulpn
+netstat -tulpn
+
+# Show routing table
+ip route
+
+# Monitor traffic (install iftop first)
+sudo apt install iftop -y
+sudo iftop -i eth0
+
+# Capture packets with tcpdump
+sudo tcpdump -i eth0 -c 100
+sudo tcpdump -i eth0 tcp
+sudo tcpdump -i eth0 -w day7_capture.pcap
+
+# Analyze with Wireshark
+wireshark day7_capture.pcap
+
+# Show listening services and processes
+sudo lsof -i -P -n | grep LISTEN
+
+# Detect failed SSH login attempts
+sudo journalctl -u ssh | grep "Failed password"
+sudo journalctl -u ssh | grep "Invalid user"
