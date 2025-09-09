@@ -1,0 +1,35 @@
+# Update system and install tcpdump
+sudo apt update
+sudo apt install tcpdump -y
+
+# List available interfaces
+sudo tcpdump -D
+
+# Capture 10 packets on eth0
+sudo tcpdump -i eth0 -c 10
+
+# Capture 10 packets with timestamp
+sudo tcpdump -i eth0 -c 10 -tttt
+
+# Capture only TCP packets
+sudo tcpdump -i eth0 tcp
+
+# Capture only UDP packets
+sudo tcpdump -i eth0 udp
+
+# Capture packets to/from specific IP
+sudo tcpdump -i eth0 host 192.168.1.10
+
+# Capture packets on a specific port
+sudo tcpdump -i eth0 port 22      # SSH
+sudo tcpdump -i eth0 port 80      # HTTP
+
+# Combine filters
+sudo tcpdump -i eth0 tcp and port 22
+sudo tcpdump -i eth0 host 192.168.1.5 or host 192.168.1.8
+
+# Save packets to a .pcap file
+sudo tcpdump -i eth0 -c 50 -w day8_capture.pcap
+
+# Read capture file from terminal
+sudo tcpdump -r day8_capture.pcap
