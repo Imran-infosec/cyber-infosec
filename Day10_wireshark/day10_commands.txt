@@ -1,0 +1,39 @@
+# Day 10 – Wireshark Commands & Filters
+
+# 1️⃣ Open Wireshark GUI
+wireshark
+
+# 2️⃣ Open a previously captured pcap file
+wireshark day9_suspicious.pcap
+
+# 3️⃣ Apply display filters
+
+# Filter by source IP
+ip.src == 10.0.2.15
+
+# Filter by destination IP
+ip.dst == 151.101.241.91
+
+# Filter by protocol
+tcp
+udp
+icmp
+http
+https
+
+# Filter by TCP port
+tcp.port == 22
+tcp.port == 443
+
+# Combine filters
+tcp.port == 22 && ip.src == 10.0.2.15
+
+# 4️⃣ Follow TCP stream
+# Right-click a TCP packet → Follow → TCP Stream
+
+# 5️⃣ Inspect packet details
+# Click packet → expand layers: Ethernet → IP → TCP → Application
+
+# 6️⃣ Save or export
+# Export selected packets to pcap: File → Export Specified Packets
+# Export packet details as CSV or plain text: File → Export Packet Dissections
