@@ -1,0 +1,31 @@
+# Day 11 – Advanced Wireshark Filters & Analysis
+
+# 1️⃣ Open previous capture file
+wireshark day10_capture.pcap
+
+# 2️⃣ Filter SYN packets (detect port scans)
+tcp.flags.syn == 1 && tcp.flags.ack == 0
+
+# 3️⃣ Filter SSH traffic (detect brute force attempts)
+tcp.port == 22
+
+# 4️⃣ Filter ICMP traffic (detect ping flood / DoS)
+icmp
+
+# 5️⃣ Filter traffic from a specific IP
+ip.src == 192.168.1.50
+
+# 6️⃣ Filter traffic to a specific IP
+ip.dst == 192.168.1.50
+
+# 7️⃣ Follow TCP Stream
+# Right-click any TCP packet → Follow → TCP Stream
+
+# 8️⃣ Coloring Rules (example)
+# SYN packets → red
+# ACK packets → blue
+# ICMP packets → green
+# Apply: View → Coloring Rules
+
+# 9️⃣ Export suspicious packets
+# File → Export Specified Packets → save as .pcap
