@@ -1,0 +1,272 @@
+# Day 12 — Linux & Security Lab Notes
+
+**Goal:** Hands-on practice and documentation for core Linux admin & security skills. Use these notes for study, interview prep, and to push to GitHub as `Day12_Linux_Security_Lab_Notes.md`.
+
+---
+
+## Contents
+
+1. Linux hands-on practice (users, permissions, processes, networking)
+2. Encryption & decryption (OpenSSL)
+3. Defensive techniques (Fail2Ban, UFW, log monitoring)
+4. Wireshark & packet analysis
+5. Password cracking (lab-only) — John & Hashcat
+6. Daily checklist & GitHub commit instructions
+
+---
+
+## 1) Linux Hands-On Practice
+
+### Commands & Examples
+
+* **User management**
+
+  ```bash
+  sudo useradd -m alice
+  sudo passwd alice
+  sudo usermod -aG sudo alice
+  sudo userdel -r bob
+  ```
+
+* **File permissions & ownership**
+
+  ```bash
+  # Change permissions
+  chmod 744 file.txt
+  # Change owner and group
+  sudo chown alice:alice file.txt
+  sudo chgrp staff file.txt
+  # Verify
+  ls -l file.txt
+  ```
+
+* **Process monitoring**
+
+  ```bash
+  top
+  ps aux | grep <process>
+  kill -9 <PID>
+  ```
+
+* **Networking**
+
+  ```bash
+  ip a            # show interfaces
+  ping -c 4 8.8.8.8
+  ss -tuln         # show listening sockets
+  netstat -tulnp   # alternative if installed
+  ```
+
+### Lab Tasks
+
+1. Create two users: `alice`, `bob`.
+2. Add `alice` to `sudo` group.
+3. Create a file as root, change owner to `alice`, set permissions `640`.
+4. List listening ports and document services running.
+
+---
+
+## 2) Encryption & Decryption (OpenSSL)
+
+### Commands
+
+* Encrypt (AES-256-CBC):
+
+  ```bash
+  openssl enc -aes-256-cbc -salt -in secret.txt -out secret.txt.enc
+  ```
+* Decrypt:
+
+  ```bash
+  openssl enc -d -aes-256-cbc -in secret.txt.enc -out secret_dec.txt
+  ```
+* Verify integrity (SHA256):
+
+  ```bash
+  sha256sum secret.txt secret_dec.txt
+  diff secret.txt secret_dec.txt
+  ```
+
+### Lab Tasks
+
+1. Create `secret.txt` with sample content.
+2. Encrypt to `secret.txt.enc`, move to `/tmp/`, decrypt to `secret_dec.txt`.
+3. Confirm checksums match.
+
+---
+
+## 3) Defensive Techniques
+
+### Fail2Ban (prevent brute-force)
+
+* Install & check status:
+
+  ```bash
+  sudo apt update && sudo apt install fail2ban -y
+  sudo systemctl status fail2ban
+  ```
+* Example `/etc/fail2ban/jail.local` snippet for SSH:
+
+  ```ini
+  [sshd]
+  enabled  = true
+  port     = ssh
+  filter   = sshd
+  logpath  = /var/log/auth.log
+  maxretry = 3
+  bantime  = 600
+  ```
+* Restart after edits:
+
+  ```bash
+  sudo systemctl restart fail2ban
+  ```
+
+### Log monitoring
+
+* Real-time:
+
+  ```bash
+  tail -f /var/log/auth.log
+  ```
+* Find failed attempts & top IPs:
+
+  ```bash
+  grep "Failed password" /var/log/auth.log | awk '{print $(NF-3)}' | sort | uniq -c | sort -nr
+  ```
+
+### UFW (firewall)
+
+* Commands:
+
+  ```bash
+  sudo ufw default deny incoming
+  sudo ufw default allow outgoing
+  sudo ufw allow ssh
+  sudo ufw enable
+  sudo ufw status verbose
+  ```
+
+### Lab Tasks
+
+1. Install & configure Fail2Ban for SSH; test by simulating failed logins (lab VM only).
+2. Configure UFW to allow SSH only and deny all incoming.
+3. Monitor `/var/log/auth.log` and record suspicious IPs.
+
+---
+
+## 4) Wireshark & Packet Analysis
+
+### Capture & filters
+
+* Start capture (run as root or with proper privileges): select correct interface.
+* Common display filters:
+
+  * `ip.addr == x.x.x.x`
+  * `tcp`, `udp`, `http`, `dns`
+  * `tcp.port == 22`, `tcp.port == 80`, `udp.port == 53`
+
+### Useful tasks
+
+1. Capture simple browsing session; filter `http` and identify GET requests.
+2. Save capture as `lab_traffic.pcap` (File → Save As).
+3. Inspect DNS queries for unusual domains.
+
+---
+
+## 5) Password Cracking (Lab Only) — John & Hashcat
+
+**WARNING:** Only on isolated lab VMs under your control. Unauthorized cracking is illegal.
+
+### Setup
+
+```bash
+sudo apt update
+sudo apt install john hashcat -y
+# (optional) gunzip /usr/share/wordlists/rockyou.txt.gz
+```
+
+### Create small wordlist & example MD5 hashes
+
+```bash
+cat > mini_wordlist.txt <<EOF
+password
+123456
+letmein
+P@ssw0rd
+hunter2
+qwerty
+admin
+secret
+welcome
+ilovecoding
+EOF
+
+# Example hashes file (raw MD5, one per line)
+cat > mini_hashes.txt <<EOF
+5f4dcc3b5aa765d61d8327deb882cf99
+e38ad214943daad1d64c102faec29de4
+7c6a180b36896a0a8c02787eeafb0e4c
+EOF
+```
+
+### John (CPU)
+
+```bash
+john --format=raw-md5 --wordlist=mini_wordlist.txt mini_hashes.txt
+john --show mini_hashes.txt
+```
+
+### Hashcat (CPU-only fallback)
+
+```bash
+hashcat -m 0 -a 0 mini_hashes.txt mini_wordlist.txt --opencl-device-types 1
+hashcat --show -m 0 mini_hashes.txt
+```
+
+### Troubleshooting tips
+
+* Ensure `mini_hashes.txt` contains only raw hashes (no trailing characters). Use `cat -A` to verify.
+* If Hashcat errors about GPU memory or temperature, run CPU-only or split the wordlist.
+* Use `hashcat --opencl-info` and `hashcat --benchmark` for diagnostics.
+
+### Defensive takeaways
+
+* Use salted, slow hashing algorithms (bcrypt/Argon2) in production.
+* Enforce strong passwords and MFA.
+* Limit login attempts and monitor logs.
+
+---
+
+## 6) Daily Review & GitHub Commit
+
+### Daily Checklist (tick when done)
+
+* [ ] Created users `alice` & `bob`
+* [ ] Changed file ownership & permissions
+* [ ] Enumerated listening services & documented
+* [ ] Encrypted & decrypted `secret.txt`, verified checksum
+* [ ] Installed & configured Fail2Ban for SSH
+* [ ] Configured UFW to allow only SSH
+* [ ] Captured network traffic and saved `lab_traffic.pcap`
+* [ ] Ran John/Hashcat on mini challenge and recorded results
+* [ ] Wrote notes in `Day12_Linux_Security_Lab_Notes.md` and pushed to GitHub
+
+### GitHub commit example
+
+```bash
+# in your repo root
+git checkout -b day12-lab-notes
+cp ~/pw_challenge/mini_hashes.txt docs/  # optional
+# add markdown notes file (place in repo root or docs/)
+# (If using this file, copy it into your repo)
+git add Day12_Linux_Security_Lab_Notes.md
+git commit -m "Day 12: Linux & Security lab notes — users, encryption, defense, Wireshark, password-cracking lab"
+git push origin day12-lab-notes
+```
+
+---
+
+**End of Day 12 notes.**
+
+Include these notes in your GitHub repo (README or `docs/`) so you can track progress and share with mentors.
