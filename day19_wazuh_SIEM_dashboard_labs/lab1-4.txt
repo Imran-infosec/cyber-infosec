@@ -1,0 +1,16 @@
+# Day 19 — Wazuh SIEM & Dashboard Labs
+
+## Repository Structure
+
+```
+day19/
+├─ README.md
+├─ day19_steps.md
+├─ dashboards/
+│  ├─ linux_alerts_dashboard.json
+│  ├─ windows_alerts_dashboard.json
+│  └─ custom_alert_dashboard.json
+├─ scripts/
+│  ├─ export_dashboards.sh
+
+```
