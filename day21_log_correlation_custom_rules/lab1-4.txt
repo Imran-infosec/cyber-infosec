@@ -1,0 +1,113 @@
+# Day 21 — Log Correlation & Custom Rule Labs
+
+## Repository Structure
+
+```
+day21/
+├─ README.md
+├─ day21_steps.md
+├─ scripts/
+│  ├─ log_correlation.sh
+│  ├─ create_custom_rule.sh
+│  └─ test_custom_rule.sh
+├─ rules/
+│  └─ local_rules.xml
+├─ outputs/
+│  ├─ correlated_logs.txt
+│  ├─ custom_rule_alerts.txt
+│  └─ test_rule_logs.txt
+```
+
+## Lab 0 — Pre-flight Checks
+
+```bash
+sudo systemctl status wazuh-manager --no-pager
+sudo systemctl status wazuh-agent --no-pager
+sudo tail -n 50 /var/ossec/logs/alerts/alerts.log
+```
+
+## Lab 1 — Log Correlation
+
+```bash
+sudo tee scripts/log_correlation.sh > /dev/null <<'BASH'
+#!/bin/bash
+grep -i -E "sshd|sudo|cron" /var/log/auth.log > outputs/correlated_logs.txt
+grep -i -E "login|security" /var/ossec/logs/alerts/alerts.log >> outputs/correlated_logs.txt
+grep -i -E "error|failed|unauthorized" /var/ossec/logs/alerts/alerts.log >> outputs/correlated_logs.txt
+echo "Log correlation completed. Output saved to outputs/correlated_logs.txt"
+BASH
+
+sudo chmod +x scripts/log_correlation.sh
+./scripts/log_correlation.sh
+```
+
+## Lab 2 — Create Custom Wazuh Rules
+
+```bash
+# Example rule for multiple failed SSH attempts
+<group name="custom, ssh_failures">
+  <rule id="100800" level="12">
+    <decoded_as>syslog</decoded_as>
+    <field name="program_name">sshd</field>
+    <field name="message">Failed password</field>
+    <frequency>5</frequency>
+    <timeframe>300</timeframe>
+    <description>Multiple SSH failed login attempts</description>
+  </rule>
+</group>
+
+# Script version
+sudo tee scripts/create_custom_rule.sh > /dev/null <<'BASH'
+#!/bin/bash
+cat <<EOL >> /var/ossec/etc/rules/local_rules.xml
+<group name="custom, ssh_failures">
+  <rule id="100800" level="12">
+    <decoded_as>syslog</decoded_as>
+    <field name="program_name">sshd</field>
+    <field name="message">Failed password</field>
+    <frequency>5</frequency>
+    <timeframe>300</timeframe>
+    <description>Multiple SSH failed login attempts</description>
+  </rule>
+</group>
+EOL
+sudo systemctl restart wazuh-manager
+echo "Custom rule added and Wazuh restarted."
+BASH
+
+sudo chmod +x scripts/create_custom_rule.sh
+./scripts/create_custom_rule.sh
+```
+
+## Lab 3 — Test Custom Rule
+
+```bash
+# Manual test
+for i in {1..6}; do ssh invalid_user@localhost; done
+grep "100800" /var/ossec/logs/alerts/alerts.log > outputs/custom_rule_alerts.txt
+
+# Script version
+sudo tee scripts/test_custom_rule.sh > /dev/null <<'BASH'
+#!/bin/bash
+for i in {1..6}; do ssh invalid_user@localhost; done
+grep "100800" /var/ossec/logs/alerts/alerts.log > outputs/custom_rule_alerts.txt
+echo "Custom rule triggered and saved to outputs/custom_rule_alerts.txt"
+BASH
+
+sudo chmod +x scripts/test_custom_rule.sh
+./scripts/test_custom_rule.sh
+```
+
+## Lab 4 — Reporting
+
+```bash
+cut -d' ' -f1-6 outputs/correlated_logs.txt | sort | uniq -c | sort -nr > outputs/correlation_summary.txt
+```
+
+## Lab 5 — Documentation for GitHub
+
+```bash
+git add .
+git commit -m "Day 21 — Log correlation, custom rule creation, testing"
+git push origin main
+```
