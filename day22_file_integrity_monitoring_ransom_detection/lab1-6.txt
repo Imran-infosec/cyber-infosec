@@ -1,0 +1,93 @@
+# Day 22 — File Integrity Monitoring & Ransomware Detection Labs
+
+## Repository Structure
+
+```
+day22/
+├─ README.md
+├─ day22_steps.md
+├─ scripts/
+│  ├─ configure_fim.sh
+│  ├─ simulate_file_change.sh
+│  └─ fim_alert_check.sh
+├─ outputs/
+│  ├─ fim_logs.txt
+│  ├─ ransomware_simulation.txt
+│  └─ fim_summary.txt
+```
+
+## Lab 0 — Pre-flight Checks
+
+```bash
+sudo systemctl status wazuh-manager --no-pager
+sudo systemctl status wazuh-agent --no-pager
+sudo tail -n 50 /var/ossec/logs/alerts/alerts.log
+```
+
+## Lab 1 — Configure File Integrity Monitoring
+
+```bash
+sudo tee scripts/configure_fim.sh > /dev/null <<'BASH'
+#!/bin/bash
+echo "Enabling FIM for critical directories..."
+sudo cp /var/ossec/etc/ossec.conf /var/ossec/etc/ossec.conf.bak
+sudo sed -i '/<directories>/c\<directories check_all="yes" realtime="yes" recursive="yes">/etc,/usr/bin,/var/www</directories>' /var/ossec/etc/ossec.conf
+sudo systemctl restart wazuh-manager
+echo "FIM configured and Wazuh restarted."
+BASH
+
+sudo chmod +x scripts/configure_fim.sh
+./scripts/configure_fim.sh
+```
+
+## Lab 2 — Simulate File Changes
+
+```bash
+sudo tee scripts/simulate_file_change.sh > /dev/null <<'BASH'
+#!/bin/bash
+echo "Simulating file changes..."
+touch /tmp/test_fim_file.txt
+echo "Test modification" >> /tmp/test_fim_file.txt
+rm /tmp/test_fim_file.txt
+echo "File change simulation complete."
+BASH
+
+sudo chmod +x scripts/simulate_file_change.sh
+./scripts/simulate_file_change.sh
+```
+
+## Lab 3 — Check FIM Alerts
+
+```bash
+sudo tee scripts/fim_alert_check.sh > /dev/null <<'BASH'
+#!/bin/bash
+grep -i -E "FIM" /var/ossec/logs/alerts/alerts.log > outputs/fim_logs.txt
+echo "FIM alerts saved to outputs/fim_logs.txt"
+BASH
+
+sudo chmod +x scripts/fim_alert_check.sh
+./scripts/fim_alert_check.sh
+```
+
+## Lab 4 — Ransomware Detection Simulation
+
+```bash
+mkdir -p /tmp/ransomware_test
+for i in {1..50}; do echo "Test file $i" > /tmp/ransomware_test/file$i.txt; done
+rm -rf /tmp/ransomware_test
+grep -i -E "FIM|deleted" /var/ossec/logs/alerts/alerts.log > outputs/ransomware_simulation.txt
+```
+
+## Lab 5 — Reporting
+
+```bash
+cut -d' ' -f1-6 outputs/fim_logs.txt | sort | uniq -c | sort -nr > outputs/fim_summary.txt
+```
+
+## Lab 6 — Documentation for GitHub
+
+```bash
+git add .
+git commit -m "Day 22 — Wazuh File Integrity Monitoring and ransomware detection"
+git push origin main
+```
