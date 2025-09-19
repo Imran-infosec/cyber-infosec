@@ -1,0 +1,161 @@
+# Day 16 — Multi-Source Wazuh Labs
+
+## Repository Structure
+
+```
+day16/
+├─ README.md
+├─ day16_steps.md
+├─ scripts/
+│  ├─ multi_decoder.sh
+│  ├─ complex_rules.sh
+│  ├─ auto_block_ip.sh
+├─ outputs/
+│  ├─ alerts_excerpt.txt
+│  ├─ correlated_logs.txt
+│  └─ auto_response_logs.txt
+```
+
+## Lab 0 — Pre-flight Checks
+
+```bash
+sudo systemctl status wazuh-manager --no-pager
+sudo systemctl status wazuh-agent --no-pager
+sudo tail -n 50 /var/ossec/logs/ossec.log
+sudo tail -n 50 /var/ossec/logs/alerts/alerts.log
+```
+
+## Lab 1 — Multi-Source Log Correlation
+
+```bash
+sudo grep -i -E "sshd|sudo|cron" /var/ossec/logs/alerts/alerts.log > outputs/correlated_logs.txt
+sudo grep -i -E "security|login" /var/ossec/logs/alerts/alerts.log >> outputs/correlated_logs.txt
+```
+
+## Lab 2 — Custom Decoders
+
+```bash
+sudo tee /var/ossec/etc/decoders/multi_decoder.xml > /dev/null <<'XML'
+<decoder name="multi_app">
+  <program_name>myapp1</program_name>
+  <type>json</type>
+</decoder>
+<decoder name="multi_app2">
+  <program_name>myapp2</program_name>
+  <type>plain</type>
+</decoder>
+XML
+sudo systemctl restart wazuh-manager
+logger -p local0.info '{"user":"hacker","action":"login_failed"}' -t myapp1
+logger -p local0.info "Unauthorized cron edit detected" -t myapp2
+```
+
+## Lab 3 — Complex Multi-Condition Rules
+
+```xml
+<group name="local,">
+  <rule id="100500" level="15">
+    <decoded_as>syslog</decoded_as>
+    <field name="program_name">sshd</field>
+    <field name="message">Failed password for hacker</field>
+    <same_source_ip />
+    <if_sid>100201</if_sid>
+    <description>Critical: SSH fail + sudo misuse</description>
+  </rule>
+</group>
+```
+
+```bash
+sudo systemctl restart wazuh-manager
+```
+
+## Lab 4 — Automated Active Response
+
+```bash
+sudo tee /var/ossec/active-response/bin/auto_block_ip.sh > /dev/null <<'BASH'
+#!/bin/bash
+IP="$1"
+/sbin/iptables -I INPUT -s "$IP" -j DROP
+echo "Blocked IP: $IP" | mail -s "Wazuh Alert: IP Blocked" your_email@example.com
+logger "Wazuh active response: blocked $IP"
+BASH
+sudo chmod +x /var/ossec/active-response/bin/auto_block_ip.sh
+```
+
+Add in `ossec.conf`:
+
+```xml
+<active-response>
+  <command>auto_block_ip.sh</command>
+  <location>local</location>
+  <rules_id>100500</rules_id>
+</active-response>
+```
+
+```bash
+sudo systemctl restart wazuh-manager
+```
+
+## Lab 5 — Threat Hunting Across Logs
+
+```bash
+sudo grep -i -E "Failed password|sudo|Unauthorized" /var/ossec/logs/alerts/alerts.log | head -n 20 > outputs/threat_hunt.txt
+```
+
+## Lab 6 — Documentation for GitHub
+
+```bash
+git add .
+git commit -m "Day 16 — Multi-source log correlation, custom decoders, complex rules, automated active response"
+git push origin main
+```
+
+## Scripts
+
+### multi\_decoder.sh
+
+```bash
+#!/usr/bin/env bash
+sudo cp /var/ossec/etc/decoders/multi_decoder.xml /var/ossec/etc/decoders/multi_decoder.xml.bak
+sudo tee -a /var/ossec/etc/decoders/multi_decoder.xml > /dev/null <<'XML'
+<decoder name="multi_app">
+  <program_name>myapp1</program_name>
+  <type>json</type>
+</decoder>
+<decoder name="multi_app2">
+  <program_name>myapp2</program_name>
+  <type>plain</type>
+</decoder>
+XML
+sudo systemctl restart wazuh-manager
+```
+
+### complex\_rules.sh
+
+```bash
+#!/usr/bin/env bash
+sudo cp /var/ossec/etc/rules/local_rules.xml /var/ossec/etc/rules/local_rules.xml.bak
+sudo tee -a /var/ossec/etc/rules/local_rules.xml > /dev/null <<'XML'
+<group name="local,">
+  <rule id="100500" level="15">
+    <decoded_as>syslog</decoded_as>
+    <field name="program_name">sshd</field>
+    <field name="message">Failed password for hacker</field>
+    <same_source_ip />
+    <if_sid>100201</if_sid>
+    <description>Critical: SSH fail + sudo misuse</description>
+  </rule>
+</group>
+XML
+sudo systemctl restart wazuh-manager
+```
+
+### auto\_block\_ip.sh
+
+```bash
+#!/usr/bin/env bash
+IP="$1"
+/sbin/iptables -I INPUT -s "$IP" -j DROP
+echo "Blocked IP: $IP" | mail -s "Wazuh Alert: IP Blocked" your_email@example.com
+logger "Wazuh active response: blocked $IP"
+```
