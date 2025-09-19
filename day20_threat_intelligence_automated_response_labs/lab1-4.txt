@@ -1,0 +1,99 @@
+# Day 20 — Threat Intelligence & Automated Response Labs
+
+## Repository Structure
+
+```
+day20/
+├─ README.md
+├─ day20_steps.md
+├─ scripts/
+│  ├─ threat_feed_integration.sh
+│  ├─ threat_detection.sh
+│  └─ auto_response.sh
+├─ outputs/
+│  ├─ threat_alerts.txt
+│  ├─ auto_response_logs.txt
+│  └─ threat_summary.txt
+```
+
+## Lab 0 — Pre-flight Checks
+
+```bash
+sudo systemctl status wazuh-manager --no-pager
+sudo systemctl status wazuh-agent --no-pager
+ping -c 3 cve.mitre.org
+ping -c 3 threatfeed.example.com
+```
+
+## Lab 1 — Integrate Threat Intelligence Feeds
+
+```bash
+sudo nano /var/ossec/etc/ossec.conf
+# Ensure the following section exists:
+<ossec_config>
+  <wmodules>
+    <module>
+      <name>intel</name>
+      <enabled>yes</enabled>
+      <interval>3600</interval>
+      <provider>cve</provider>
+      <provider>misp</provider>
+    </module>
+  </wmodules>
+</ossec_config>
+
+sudo systemctl restart wazuh-manager
+
+# Script version
+sudo tee scripts/threat_feed_integration.sh > /dev/null <<'BASH'
+#!/bin/bash
+echo "Checking threat feed integration..."
+/var/ossec/bin/wazuh-modulesd -t
+echo "Threat feed module active."
+BASH
+sudo chmod +x scripts/threat_feed_integration.sh
+./scripts/threat_feed_integration.sh
+```
+
+## Lab 2 — Threat Detection
+
+```bash
+sudo grep -i -E "CVE|malware|suspicious" /var/ossec/logs/alerts/alerts.log > outputs/threat_alerts.txt
+
+# Script version
+sudo tee scripts/threat_detection.sh > /dev/null <<'BASH'
+#!/bin/bash
+grep -i -E "CVE|malware|suspicious|MITRE" /var/ossec/logs/alerts/alerts.log > outputs/threat_alerts.txt
+echo "Threat alerts saved in outputs/threat_alerts.txt"
+BASH
+sudo chmod +x scripts/threat_detection.sh
+./scripts/threat_detection.sh
+```
+
+## Lab 3 — Automated Response for Critical Threats
+
+```bash
+sudo tee scripts/auto_response.sh > /dev/null <<'BASH'
+#!/bin/bash
+ALERT_IP="$1"
+/sbin/iptables -I INPUT -s "$ALERT_IP" -j DROP
+echo "Critical threat IP $ALERT_IP blocked." | mail -s "Wazuh Threat Alert" your_email@example.com
+logger "Auto-response executed for $ALERT_IP"
+BASH
+sudo chmod +x scripts/auto_response.sh
+# Test: ./scripts/auto_response.sh 192.168.1.100
+```
+
+## Lab 4 — Reporting
+
+```bash
+cut -d' ' -f1-6 outputs/threat_alerts.txt | sort | uniq -c | sort -nr > outputs/threat_summary.txt
+```
+
+## Lab 5 — Documentation for GitHub
+
+```bash
+git add .
+git commit -m "Day 20 — Threat intelligence integration and automated response"
+git push origin main
+```
