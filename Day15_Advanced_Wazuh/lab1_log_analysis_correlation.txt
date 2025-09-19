@@ -1,0 +1,14 @@
+Lab 1 — Log Analysis & Correlation
+
+Find top alerting rules:
+
+sudo grep -oP "<rule id=\"\K[0-9]+(?=\")" /var/ossec/logs/alerts/alerts.log \
+    | sort | uniq -c | sort -nr | head -n 20
+
+
+Correlate multiple events (e.g., SSH + sudo + cron):
+
+sudo grep -i -E "sshd|sudo|cron" /var/ossec/logs/alerts/alerts.log
+
+
+Deliverable: Top 5 correlated alert patterns, saved in /outputs/alerts_excerpt.txt.

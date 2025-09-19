@@ -1,0 +1,18 @@
+Lab 4 — Threat Hunting
+
+SSH login attempts:
+
+sudo journalctl _COMM=sshd | grep "Accepted password" | tail -n 50
+
+
+Recent sudo commands:
+
+sudo journalctl -u sudo --no-pager | tail -n 50
+
+
+Cron edits:
+
+ls -l /etc/crontab /var/spool/cron/crontabs
+
+
+Deliverable: Suspicious activity notes in /outputs/threat_hunt.txt.

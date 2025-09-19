@@ -1,0 +1,23 @@
+Lab 3 — Advanced Multi-Condition Rules
+
+Add rules for combined conditions (failed SSH + repeated sudo):
+
+<group name="local,">
+  <rule id="100400" level="12">
+    <decoded_as>syslog</decoded_as>
+    <field name="program_name">sshd</field>
+    <field name="message">Failed password for hacker</field>
+    <description>High severity: failed SSH + suspicious sudo</description>
+    <same_source_ip />
+  </rule>
+</group>
+
+
+Restart Wazuh:
+
+sudo systemctl restart wazuh-manager
+
+
+Trigger events to test rule.
+
+Deliverable: Alerts matching rule saved to /outputs/alerts_excerpt.txt.

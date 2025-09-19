@@ -1,0 +1,24 @@
+Lab 2 — Custom Decoder
+
+Example: create a decoder for a custom application log:
+
+sudo tee /var/ossec/etc/decoders/local_decoder.xml > /dev/null <<'XML'
+<decoder name="custom_app_log">
+  <program_name>myapp</program_name>
+  <type>json</type>
+</decoder>
+XML
+
+
+Restart Wazuh to load decoder:
+
+sudo systemctl restart wazuh-manager
+
+
+Generate test logs for decoder:
+
+logger -p local0.info '{"user":"hacker","action":"login_failed"}' -t myapp
+sudo tail -f /var/ossec/logs/alerts/alerts.log | grep myapp
+
+
+Deliverable: Screenshot or alert excerpt showing decoder matched logs.

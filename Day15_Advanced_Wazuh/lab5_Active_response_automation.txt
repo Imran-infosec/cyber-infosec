@@ -1,0 +1,29 @@
+Lab 5 — Active Response Automation
+
+Script to block IPs after repeated failed SSH:
+
+sudo tee /var/ossec/active-response/bin/block_ip.sh > /dev/null <<'BASH'
+#!/bin/bash
+IP="$1"
+/sbin/iptables -I INPUT -s "$IP" -j DROP
+logger "Wazuh active response: blocked $IP"
+BASH
+
+sudo chmod +x /var/ossec/active-response/bin/block_ip.sh
+
+
+Add active-response entry in /var/ossec/etc/ossec.conf:
+
+<active-response>
+  <command>block_ip.sh</command>
+  <location>local</location>
+  <rules_id>100400</rules_id>
+</active-response>
+
+
+Restart manager and test:
+
+sudo systemctl restart wazuh-manager
+
+
+Deliverable: Show blocked IPs and log entry in Wazuh alerts.
