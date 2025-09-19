@@ -1,0 +1,73 @@
+# Day 17 — Incident Detection & Response Labs
+
+## Repository Structure
+
+```
+day17/
+├─ README.md
+├─ day17_steps.md
+├─ scripts/
+│  ├─ incident_analysis.sh
+│  ├─ alert_prioritization.sh
+│  └─ response_playbook.sh
+├─ outputs/
+│  ├─ top_incidents.txt
+│  ├─ attacker_trace.txt
+│  └─ response_logs.txt
+```
+
+## Lab 0 — Pre-flight Checks
+
+```bash
+sudo systemctl status wazuh-manager --no-pager
+sudo systemctl status wazuh-agent --no-pager
+sudo tail -n 50 /var/ossec/logs/ossec.log
+sudo tail -n 50 /var/ossec/logs/alerts/alerts.log
+```
+
+## Lab 1 — High-Severity Incident Detection
+
+```bash
+sudo grep -i "<level>" /var/ossec/logs/alerts/alerts.log | awk -F'[<>]' '{print $3}' | sort -nr | head -n 20 > outputs/top_incidents.txt
+sudo grep -i -E "level>12" /var/ossec/logs/alerts/alerts.log | awk '{print $0}' >> outputs/top_incidents.txt
+```
+
+## Lab 2 — Forensic Log Analysis
+
+```bash
+sudo grep "sshd" /var/log/auth.log | tail -n 100 > outputs/attacker_trace.txt
+sudo grep "sudo" /var/log/auth.log | tail -n 100 >> outputs/attacker_trace.txt
+ls -l /var/spool/cron/crontabs /etc/crontab >> outputs/attacker_trace.txt
+```
+
+## Lab 3 — Alert Prioritization
+
+```bash
+sudo tee scripts/alert_prioritization.sh > /dev/null <<'BASH'
+#!/bin/bash
+grep -i "<level>[8-15]</level>" /var/ossec/logs/alerts/alerts.log > outputs/alerts_prioritized.txt
+echo "High and medium alerts saved in outputs/alerts_prioritized.txt"
+BASH
+sudo chmod +x scripts/alert_prioritization.sh
+./scripts/alert_prioritization.sh
+```
+
+## Lab 4 — Response Playbooks
+
+```bash
+# Manual steps
+sudo iptables -I INPUT -s <SUSPICIOUS_IP> -j DROP
+echo "Suspicious activity detected on host" | mail -s "Wazuh Alert" your_email@example.com
+sudo ifdown eth1
+
+# Script version
+sudo tee scripts/response_playbook.sh > /dev/null <<'BASH'
+#!/bin/bash
+IP="$1"
+/sbin/iptables -I INPUT -s "$IP" -j DROP
+echo "Suspicious activity from $IP" | mail -s "Wazuh Alert" your_email@example.com
+logger "Wazuh response executed for $IP"
+BASH
+sudo chmod +x scripts/response_playbook.sh
+```
+
