@@ -1,0 +1,111 @@
+# Day 23 — Web Server Log Analysis & Web Attack Detection Labs
+
+## Repository Structure
+
+```
+day23/
+├─ README.md
+├─ day23_steps.md
+├─ scripts/
+│  ├─ monitor_web_logs.sh
+│  ├─ custom_web_rules.sh
+│  └─ test_web_attacks.sh
+├─ rules/
+│  └─ web_local_rules.xml
+├─ outputs/
+│  ├─ web_alerts.txt
+│  ├─ attack_simulation.txt
+│  └─ web_summary.txt
+```
+
+## Lab 0 — Pre-flight Checks
+
+```bash
+sudo systemctl status wazuh-manager --no-pager
+sudo systemctl status wazuh-agent --no-pager
+sudo tail -n 50 /var/ossec/logs/alerts/alerts.log
+sudo systemctl status apache2  # or nginx
+```
+
+## Lab 1 — Monitor Web Server Logs
+
+```bash
+sudo tee scripts/monitor_web_logs.sh > /dev/null <<'BASH'
+#!/bin/bash
+echo "Monitoring web server logs..."
+grep -i -E "GET|POST|login|error" /var/log/apache2/access.log > outputs/web_alerts.txt
+grep -i -E "GET|POST|login|error" /var/log/nginx/access.log >> outputs/web_alerts.txt
+echo "Web logs monitored. Alerts saved to outputs/web_alerts.txt"
+BASH
+
+sudo chmod +x scripts/monitor_web_logs.sh
+./scripts/monitor_web_logs.sh
+```
+
+## Lab 2 — Create Custom Web Rules
+
+```bash
+# Example rules for SQL injection and XSS
+<group name="custom, web_attacks">
+  <rule id="100900" level="12">
+    <decoded_as>web</decoded_as>
+    <field name="request">.*union.*select.*</field>
+    <description>SQL Injection Attempt</description>
+  </rule>
+  <rule id="100901" level="12">
+    <decoded_as>web</decoded_as>
+    <field name="request">.*<script>.*</field>
+    <description>XSS Attempt</description>
+  </rule>
+</group>
+
+# Script version
+sudo tee scripts/custom_web_rules.sh > /dev/null <<'BASH'
+#!/bin/bash
+cat <<EOL >> /var/ossec/etc/rules/web_local_rules.xml
+<group name="custom, web_attacks">
+  <rule id="100900" level="12">
+    <decoded_as>web</decoded_as>
+    <field name="request">.*union.*select.*</field>
+    <description>SQL Injection Attempt</description>
+  </rule>
+  <rule id="100901" level="12">
+    <decoded_as>web</decoded_as>
+    <field name="request">.*<script>.*</field>
+    <description>XSS Attempt</description>
+  </rule>
+</group>
+EOL
+sudo systemctl restart wazuh-manager
+echo "Custom web rules added and Wazuh restarted."
+BASH
+
+sudo chmod +x scripts/custom_web_rules.sh
+./scripts/custom_web_rules.sh
+```
+
+## Lab 3 — Simulate Web Attacks
+
+```bash
+# SQL injection simulation
+curl -s "http://localhost/index.php?id=1' UNION SELECT 1,2,3--"
+
+# XSS simulation
+curl -s "http://localhost/index.php?q=<script>alert(1)</script>"
+
+grep -i -E "100900|100901" /var/ossec/logs/alerts/alerts.log > outputs/attack_simulation.txt
+```
+
+## Lab 4 — Reporting
+
+```bash
+cut -d' ' -f1-6 outputs/web_alerts.txt | sort | uniq -c | sort -nr > outputs/web_summary.txt
+```
+
+## Lab 5 — Documentation for GitHub
+
+```bash
+git add .
+git commit -m "Day 23 — Web server log analysis and web attack detection"
+git push origin main
+```
