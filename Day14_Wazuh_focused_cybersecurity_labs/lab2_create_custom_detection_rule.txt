@@ -1,0 +1,29 @@
+sudo tee /var/ossec/etc/rules/local_rules.xml > /dev/null <<'XML'
+<group name="local,">
+<rule id="100200" level="10">
+<decoded_as>syslog</decoded_as>
+<field name="program_name">sshd</field>
+<field name="message">Failed password for hacker</field>
+<description>Failed ssh login for hacker user</description>
+</rule>
+
+
+<rule id="100201" level="10">
+<decoded_as>syscheck</decoded_as>
+<field name="path">/etc/crontab</field>
+<description>Crontab modification detected</description>
+</rule>
+</group>
+XML
+
+Restart manager to apply rules:
+
+sudo systemctl restart wazuh-manager
+
+Test: attempt failed ssh login and edit crontab, then check alerts:
+
+ssh hacker@127.0.0.1   # fail password
+sudo nano /etc/crontab  # make a dummy change
+sudo tail -f /var/ossec/logs/alerts/alerts.log | grep -E "100200|100201" --line-buffered
+
+Deliverable: outputs/alerts_excerpt.txt with matched rule entries.

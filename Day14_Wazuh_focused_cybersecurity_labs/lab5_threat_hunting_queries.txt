@@ -1,0 +1,18 @@
+Lab 5 — Threat hunting queries
+
+Goal: Run quick hunts for suspicious activity (recent sudo, ssh, cron edits).
+
+Recent successful sudo by non-root:
+
+sudo journalctl -u sudo --no-pager | grep -i "COMMAND=" | tail -n 50
+
+Recent successful SSH logins for hacker:
+
+sudo journalctl _COMM=sshd | grep "Accepted password" | grep hacker || true
+
+Recent crontab edits (using audit if enabled) or check timestamps:
+
+ls -l /etc/crontab /var/spool/cron/crontabs || true
+sudo stat /etc/crontab
+
+Deliverable: Notes of suspicious findings in outputs/threat_hunt.txt.

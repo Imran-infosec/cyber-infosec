@@ -1,0 +1,20 @@
+Lab 3 — Security Configuration Assessment (SCA)
+
+Goal: Run SCA policies and collect results.
+
+Force SCA run:
+
+sudo /var/ossec/bin/wazuh-modulesd -s sca
+# or restart module
+sudo systemctl restart wazuh-manager
+
+SCA outputs are written to alerts and logs; search SCA alerts:
+
+sudo grep -i "sca" -n /var/ossec/logs/alerts/alerts.log | tail -n 100
+sudo tail -n 200 /var/ossec/logs/ossec.log | grep -i sca
+
+Export SCA findings to /outputs/sca_report.txt (example):
+
+sudo grep -i "Security Configuration Assessment" -n /var/ossec/logs/ossec.log > outputs/sca_report.txt || true
+
+Deliverable: outputs/sca_report.txt and notes on top 3 failed checks.

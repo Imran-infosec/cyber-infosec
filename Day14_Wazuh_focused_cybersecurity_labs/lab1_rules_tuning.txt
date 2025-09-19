@@ -1,0 +1,19 @@
+sudo awk -F'\n' '/\\<alert>/, /\\<\/alert>/' /var/ossec/logs/alerts/alerts.log | grep -i "rule id" -c
+# Simpler: list top programs
+sudo grep -oP "<rule id=\"\K[0-9]+(?=)" /var/ossec/logs/alerts/alerts.log | sort | uniq -c | sort -nr | head -n 20
+
+#open /var/ossec/etc/rules/local_rules.xml
+#Example: suppress a known noisy rule for local testing
+
+<group name="local,">
+<rule id="100100" level="0">
+<if_sid>5716</if_sid>
+<description>Suppress noisy SSH disconnected events in lab</description>
+</rule>
+</group>
+
+#restart manager:
+
+sudo systemctl restart wazuh-manager
+
+#note top 5 noisy rule IDs and your suppression/level changes in /outputs/alerts_excerpt.txt.

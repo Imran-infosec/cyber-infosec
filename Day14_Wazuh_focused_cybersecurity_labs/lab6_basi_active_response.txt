@@ -1,0 +1,31 @@
+Lab 6 — Basic active response (auto-block IP)
+
+Goal: Implement a simple active response script to block repeated failed SSH IPs using hosts.deny or ufw.
+
+Create script /var/ossec/active-response/bin/block_ip.sh (example):
+
+sudo tee /var/ossec/active-response/bin/block_ip.sh > /dev/null <<'BASH'
+#!/bin/bash
+IP="$1"
+/sbin/iptables -I INPUT -s "$IP" -j DROP
+logger "Wazuh active response: blocked $IP"
+BASH
+sudo chmod +x /var/ossec/active-response/bin/block_ip.sh
+
+Add an active-response entry in /var/ossec/etc/ossec.conf (manager):
+
+<active-response>
+  <command>block_ip.sh</command>
+  <location>local</location>
+  <rules_id>100200</rules_id>
+</active-response>
+
+Restart manager and test by triggering rule 100200 (failed hacker login).
+
+Caution: Test in lab; iptables changes can block you. Use snapshots.
+
+Cleanup & restore
+
+Remove temporary rules or active-response scripts after testing.
+
+Revert any iptables changes:
