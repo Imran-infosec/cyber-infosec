@@ -1,0 +1,92 @@
+# Day 18 — Automated Log Analysis & Alert Tuning
+
+## Repository Structure
+
+```
+day18/
+├─ README.md
+├─ day18_steps.md
+├─ scripts/
+│  ├─ log_analysis.sh
+│  ├─ alert_tuning.sh
+│  └─ incident_simulation.sh
+├─ outputs/
+│  ├─ analyzed_logs.txt
+│  ├─ tuned_alerts.txt
+│  └─ simulated_incidents.txt
+```
+
+## Lab 0 — Pre-flight Checks
+
+```bash
+sudo systemctl status wazuh-manager --no-pager
+sudo systemctl status wazuh-agent --no-pager
+sudo tail -n 50 /var/ossec/logs/ossec.log
+sudo tail -n 50 /var/ossec/logs/alerts/alerts.log
+```
+
+## Lab 1 — Automated Log Extraction & Analysis
+
+```bash
+sudo tee scripts/log_analysis.sh > /dev/null <<'BASH'
+#!/bin/bash
+# Linux logs
+grep -i -E "sshd|sudo|cron" /var/log/auth.log > outputs/analyzed_logs.txt
+# Application logs
+grep -i -E "error|failed|unauthorized" /var/ossec/logs/alerts/alerts.log >> outputs/analyzed_logs.txt
+# Windows agent logs (if applicable)
+grep -i -E "login|security" /var/ossec/logs/alerts/alerts.log >> outputs/analyzed_logs.txt
+
+echo "Log analysis completed. Output saved to outputs/analyzed_logs.txt"
+BASH
+
+sudo chmod +x scripts/log_analysis.sh
+./scripts/log_analysis.sh
+```
+
+## Lab 2 — Alert Tuning
+
+```bash
+# Identify frequent false positives
+sudo grep -i "<level>" /var/ossec/logs/alerts/alerts.log | sort | uniq -c | sort -nr | head -n 20
+
+# Suppress known false positives in local_rules.xml
+<rule id="100600" level="3">
+  <decoded_as>syslog</decoded_as>
+  <field name="program_name">myapp</field>
+  <description>Suppress known benign events</description>
+</rule>
+
+# Script version
+sudo tee scripts/alert_tuning.sh > /dev/null <<'BASH'
+#!/bin/bash
+echo "Adjusting Wazuh rules to suppress false positives..."
+# Example: disable low-level frequent false positives
+sed -i '/<rule id="100201"/s/level>.*</level>3</' /var/ossec/etc/rules/local_rules.xml
+sudo systemctl restart wazuh-manager
+echo "Alert tuning completed."
+BASH
+
+sudo chmod +x scripts/alert_tuning.sh
+./scripts/alert_tuning.sh
+```
+
+## Lab 3 — Incident Simulation
+
+```bash
+# Failed SSH attempt simulation
+for i in {1..5}; do ssh invalid_user@localhost; done
+
+# Application error simulation
+logger -p local0.info '{"user":"test","action":"login_failed"}' -t myapp
+
+# Save simulated incidents
+grep -i -E "sshd|myapp" /var/ossec/logs/alerts/alerts.log | tail -n 50 > outputs/simulated_incidents.txt
+```
+
+## Lab 4 — Reporting
+
+```bash
+cut -d' ' -f1-6 outputs/analyzed_logs.txt | sort | uniq -c | sort -nr > outputs/analyzed_summary.txt
+cp outputs/analyzed_summary.txt outputs/final_report_day18.txt
+```
