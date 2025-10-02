@@ -1,0 +1,40 @@
+#!/bin/bash
+# Wazuh Day 26 - Alert Correlation & Reporting (One-Click)
+# Author: Muhammad Imran
+# Date: 2025-10-02
+
+echo "=============================================="
+echo "Day 26 - Wazuh Alert Correlation & Reporting"
+echo "=============================================="
+
+# 1️⃣ Extract last 100 alerts
+echo -e "\n--- Step 1: Extract last 100 alerts ---"
+sudo tail -n 100 /var/ossec/logs/alerts/alerts.json > last_100_alerts.json
+echo "Saved to last_100_alerts.json"
+
+# 2️⃣ Show decoder, rule, user, IP, and firedtimes
+echo -e "\n--- Step 2: Decoder & Rule Summary ---"
+jq '{timestamp, decoder:.decoder.name, rule:.rule.description, dstuser:.data.dstuser, srcip:.data.srcip, firedtimes:.rule.firedtimes}' last_100_alerts.json | less -S
+
+# 3️⃣ Count alerts per user
+echo -e "\n--- Step 3: Alerts Count per User ---"
+jq -r '.data.dstuser' last_100_alerts.json | sort | uniq -c | sort -nr
+
+# 4️⃣ Count alerts per IP
+echo -e "\n--- Step 4: Alerts Count per IP ---"
+jq -r '.data.srcip' last_100_alerts.json | sort | uniq -c | sort -nr
+
+# 5️⃣ Group alerts by rule
+echo -e "\n--- Step 5: Most Triggered Rules ---"
+jq -r '.rule.description' last_100_alerts.json | sort | uniq -c | sort -nr
+
+# 6️⃣ Top 5 Users and IPs
+echo -e "\n--- Step 6: Top 5 Users ---"
+jq -r '.data.dstuser' last_100_alerts.json | sort | uniq -c | sort -nr | head -5
+
+echo -e "\n--- Step 6: Top 5 IPs ---"
+jq -r '.data.srcip' last_100_alerts.json | sort | uniq -c | sort -nr | head -5
+
+echo -e "\n=============================================="
+echo "Day 26 - Reporting Completed"
+echo "=============================================="
