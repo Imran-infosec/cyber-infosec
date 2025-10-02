@@ -1,0 +1,47 @@
+#!/bin/bash
+# Wazuh Day 25 - End-to-End Practical
+# Author: Muhammad Imran
+# Date: 2025-10-02
+
+echo "=============================================="
+echo "Day 25 - Wazuh End-to-End Workflow"
+echo "=============================================="
+
+# 1️⃣ Test decoder with logs (with and without timestamp)
+echo -e "\n--- Step 1: Test Logs ---"
+sudo /var/ossec/bin/wazuh-logtest <<EOF
+Oct 02 15:00:00 ip-172-31-41-20 myapp: login attempt by user=testuser from ip=192.168.56.101
+myapp: login attempt by user=testuser from ip=192.168.56.101
+EOF
+
+# 2️⃣ Show last 20 alerts in plain log
+echo -e "\n--- Step 2: Last 20 Alerts (alerts.log) ---"
+sudo tail -n 20 /var/ossec/logs/alerts/alerts.log
+
+# 3️⃣ JSON summary of last 50 alerts
+echo -e "\n--- Step 3: JSON Alerts Summary ---"
+sudo cat /var/ossec/logs/alerts/alerts.json | tail -n 50 | jq '{timestamp, decoder:.decoder.name, rule:.rule.description, dstuser:.data.dstuser, srcip:.data.srcip, firedtimes:.rule.firedtimes, active_response:.program}' | less -S
+
+# 4️⃣ Filter alerts for testuser
+echo -e "\n--- Step 4: Alerts for User 'testuser' ---"
+sudo cat /var/ossec/logs/alerts/alerts.json | jq 'select(.data.dstuser=="testuser") | {timestamp, decoder:.decoder.name, rule:.rule.description, srcip:.data.srcip, firedtimes:.rule.firedtimes, active_response:.program}'
+
+# 5️⃣ Filter alerts for a specific IP
+echo -e "\n--- Step 5: Alerts from IP '176.245.16.225' ---"
+sudo cat /var/ossec/logs/alerts/alerts.json | jq 'select(.data.srcip=="176.245.16.225") | {timestamp, decoder:.decoder.name, rule:.rule.description, dstuser:.data.dstuser, firedtimes:.rule.firedtimes, active_response:.program}'
+
+# 6️⃣ Count alerts per user
+echo -e "\n--- Step 6: Alerts Count per User ---"
+sudo cat /var/ossec/logs/alerts/alerts.json | jq -r '.data.dstuser' | sort | uniq -c | sort -nr
+
+# 7️⃣ Count alerts per IP
+echo -e "\n--- Step 7: Alerts Count per IP ---"
+sudo cat /var/ossec/logs/alerts/alerts.json | jq -r '.data.srcip' | sort | uniq -c | sort -nr
+
+# 8️⃣ Check active-response log
+echo -e "\n--- Step 8: Active-Response Log ---"
+sudo tail -n 20 /var/ossec/logs/active-responses.log
+
+echo -e "\n=============================================="
+echo "Day 25 - End-to-End Practical Completed"
+echo "=============================================="
