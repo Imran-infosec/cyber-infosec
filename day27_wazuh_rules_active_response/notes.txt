@@ -1,0 +1,66 @@
+# Day 27 - Wazuh Custom Rules & Active Response
+
+# ========================
+# 1. Create Local Rules
+# ========================
+sudo tee /var/ossec/etc/rules/local_rules.xml > /dev/null <<'XML'
+<group name="local,ssh,">
+  <rule id="100300" level="10">
+    <if_sid>5710</if_sid>
+    <description>SSH failed login detected</description>
+  </rule>
+
+  <rule id="100301" level="12" frequency="5" timeframe="60" ignore="10">
+    <if_matched_sid>100300</if_matched_sid>
+    <description>Possible SSH brute-force attack (5 failed attempts in 1 minute)</description>
+  </rule>
+</group>
+XML
+
+# Validate rules
+sudo /var/ossec/bin/wazuh-logtest
+
+# Restart manager
+sudo systemctl restart wazuh-manager
+
+# ========================
+# 2. Active Response Config
+# ========================
+# Add this block to /var/ossec/etc/ossec.conf inside <ossec_config>
+
+: <<'CONF'
+<active-response>
+  <command>firewalld-drop</command>
+  <location>local</location>
+  <rules_id>5503,5760</rules_id>
+  <timeout>0</timeout>   <!-- permanent ban -->
+</active-response>
+CONF
+
+# Restart manager again after changes
+sudo systemctl restart wazuh-manager
+
+# ========================
+# 3. Test
+# ========================
+# Simulate failed SSH login attempts:
+ssh testuser@localhost   # enter wrong password 3 times
+
+# Check active responses
+sudo tail -f /var/ossec/logs/active-responses.log
+
+# ========================
+# 4. Unblock IP (if needed)
+# ========================
+# Show blocked IPs
+sudo firewall-cmd --list-rich-rules
+
+# Unblock a specific IP
+sudo firewall-cmd --permanent --remove-rich-rule='rule family="ipv4" source address="176.245.16.225" reject'
+sudo firewall-cmd --reload
+
+# Or use Wazuh script
+/var/ossec/active-response/bin/firewalld-drop -u 176.245.16.225
+
+# Confirm unblock
+sudo firewall-cmd --list-rich-rules
