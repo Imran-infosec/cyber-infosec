@@ -1,0 +1,95 @@
+# 🚀 Day 28 – Splunk Basics Lab
+
+## 🎯 Objective
+- Learn to **search logs** in Splunk
+- Understand basic **SPL queries**
+- Create **alerts** and simple **dashboards**
+
+---
+
+## 1️⃣ Explore the default indexes
+```spl
+index=_internal | head 20
+```
+
+Format results into a clean table:
+```spl
+index=_internal | head 20 | table _time, host, source, sourcetype, log_level, message
+```
+
+---
+
+## 2️⃣ Search by criteria
+Example: failed login attempts:
+```spl
+index=_internal "Failed password" | table _time, host, message
+```
+
+---
+
+## 3️⃣ Time filtering
+Logs from the last 24 hours:
+```spl
+index=_internal earliest=-24h | head 20
+```
+
+Logs from the last 7 days:
+```spl
+index=_internal earliest=-7d
+```
+
+---
+
+## 4️⃣ Statistics
+Count logs by host:
+```spl
+index=_internal | stats count by host
+```
+
+Count logs by sourcetype:
+```spl
+index=_internal | stats count by sourcetype
+```
+
+---
+
+## 5️⃣ Create a simple alert
+1. Run search:
+   ```spl
+   index=_internal "Failed password"
+   ```
+2. Click **Save As → Alert**  
+3. Trigger condition: *if number of events > 5*  
+4. Set actions: email, webhook, or log  
+
+---
+
+## 6️⃣ Build a simple dashboard
+1. Go to **Dashboards → Create New Dashboard**  
+2. Add panels using saved searches  
+   - Example query:
+     ```spl
+     index=_internal | stats count by sourcetype
+     ```
+3. Choose visualization: bar, pie, or table  
+
+---
+
+# 📌 Day 28 – SPL Cheat Sheet
+
+| Command | Example | Description |
+|---------|---------|-------------|
+| `head` | `index=_internal | head 20` | Show first 20 results |
+| `table` | `... | table _time, host, source` | Format into a table |
+| `stats` | `... | stats count by sourcetype` | Aggregate data |
+| `earliest` | `earliest=-24h` | Filter logs by time |
+| `search` | `"Failed password"` | Search for keywords |
+| `sourcetype` | `sourcetype=syslog` | Filter by log type |
+
+---
+
+## ✅ Summary
+- Use `index=` and `sourcetype=` to search data  
+- Use `stats`, `table`, `head`, `earliest` for filtering  
+- Create **alerts** to monitor events  
+- Build **dashboards** to visualize data  
