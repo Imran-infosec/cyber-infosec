@@ -1,0 +1,114 @@
+###############################################
+# Day 29 - Network Threat Detection using Splunk
+# Phase 3: Threat Detection & Analysis
+# Objective: Detect suspicious network activity such as port scans,
+#             brute-force logins, data exfiltration, and C2 communication.
+###############################################
+
+
+###############################################
+# 1️⃣ Dataset Validation
+# Confirm network data is available in Splunk
+###############################################
+index=botsv3 sourcetype="stream:network_traffic"
+| head 5
+
+
+###############################################
+# 2️⃣ Port Scanning Detection
+# Detect IPs contacting many unique destination ports.
+###############################################
+index=botsv3 sourcetype="stream:network_traffic"
+| stats dc(dest_port) as unique_ports count by src_ip
+| where unique_ports > 50
+| sort -unique_ports
+# Visualization: Bar Chart (src_ip vs unique_ports)
+
+
+###############################################
+# 3️⃣ Brute-Force Login Attempt Detection
+# Identify repeated failed login attempts from the same source IP.
+###############################################
+index=botsv3 action="failed_login"
+| stats count by src_ip dest_ip
+| where count > 10
+| sort -count
+# Visualization: Table (src_ip, dest_ip, count)
+
+
+###############################################
+# 4️⃣ Data Exfiltration Detection
+# Find systems sending significantly more data out than received.
+###############################################
+index=botsv3 sourcetype="stream:network_traffic"
+| stats sum(bytes_out) as total_out, sum(bytes_in) as total_in by src_ip
+| eval ratio = total_out / (total_in + 1)
+| where ratio > 10
+| sort -ratio
+# Visualization: Column Chart (src_ip vs ratio)
+# Indicator: Possible data exfiltration or compromised host.
+
+
+###############################################
+# 5️⃣ Command & Control (C2) Communication Detection
+# Detect repeated connections to suspicious or uncommon ports.
+###############################################
+index=botsv3 sourcetype="stream:network_traffic"
+| where dest_port IN (8080, 443, 4444, 9001)
+| stats count by src_ip dest_ip dest_port
+| where count > 20
+| sort -count
+# Visualization: Scatter Plot (src_ip vs dest_ip, size=count)
+# Indicator: Persistent outbound traffic to suspicious ports.
+
+
+###############################################
+# 6️⃣ Threat Intelligence Correlation (Optional)
+# Match destination IPs with known malicious IPs from threat intel.
+###############################################
+| inputlookup flagged_ips.csv
+| rename ip as dest_ip
+| join dest_ip [ search index=botsv3 sourcetype="stream:network_traffic" ]
+| table _time src_ip dest_ip bytes_in bytes_out
+# Visualization: Table (IOC matches)
+# Note: Ensure "flagged_ips.csv" has a column named "ip".
+
+
+###############################################
+# 7️⃣ Dashboard Configuration
+# Suggested Panels for "Network Threat Dashboard"
+# - Port Scan Detection
+# - Brute-Force Attempts
+# - Data Exfiltration
+# - C2 Communication
+# - IOC Match
+###############################################
+
+
+###############################################
+# 8️⃣ Bonus Alert Examples
+# Create Splunk alerts based on thresholds.
+###############################################
+# Port Scan Alert
+index=botsv3 sourcetype="stream:network_traffic"
+| stats dc(dest_port) as unique_ports by src_ip
+| where unique_ports > 100
+
+# Data Exfiltration Alert
+index=botsv3 sourcetype="stream:network_traffic"
+| stats sum(bytes_out) as total_out, sum(bytes_in) as total_in by src_ip
+| eval ratio = total_out / (total_in + 1)
+| where ratio > 20
+
+# C2 Repeated Connections Alert
+index=botsv3 sourcetype="stream:network_traffic"
+| where dest_port IN (8080, 443, 4444, 9001)
+| stats count by src_ip dest_ip
+| where count > 30
+
+
+###############################################
+# ✅ End of Day 29
+# Title: Network Threat Detection using Splunk
+# Next: Day 30 – Endpoint Threat Correlation (Wazuh + Sysmon + Splunk)
+###############################################
