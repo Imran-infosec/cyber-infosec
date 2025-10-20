@@ -1,0 +1,92 @@
+##############################################
+# 🧩 DAY 32 – NESSUS VULNERABILITY REPORTS
+##############################################
+
+# ────────────────────────────────
+# STEP 1 – Confirm Nessus is running
+# ────────────────────────────────
+sudo systemctl status nessusd --no-pager
+sudo ss -tulpn | grep 8834
+
+# If stopped:
+sudo systemctl restart nessusd
+
+# ────────────────────────────────
+# STEP 2 – Access Nessus Web UI
+# ────────────────────────────────
+# Browser:
+#   https://localhost:8834/
+#   or https://<SERVER_IP>:8834/
+# Login with your Nessus admin user.
+
+# ────────────────────────────────
+# STEP 3 – Review your last scan results
+# ────────────────────────────────
+# Dashboard → Scans → Completed Scan → Click scan name
+# You’ll see:
+#   - Total vulnerabilities
+#   - Severity breakdown (Critical / High / Medium / Low / Info)
+#   - Hosts affected
+
+# ────────────────────────────────
+# STEP 4 – Export report (multiple formats)
+# ────────────────────────────────
+# In web UI → top-right corner → “Export”
+# Choose one of:
+#   - HTML  → readable report
+#   - CSV   → for Excel / Splunk analysis
+#   - PDF   → for documentation
+
+# OR via CLI (for automation):
+sudo /opt/nessus/sbin/nessuscli report --help
+
+# Example: Export all scan results (adjust filename)
+sudo /opt/nessus/sbin/nessuscli report --export /opt/nessus/var/nessus/users/admin/reports --format pdf --output /tmp/nessus_report.pdf
+
+# ────────────────────────────────
+# STEP 5 – Understand Severity Levels
+# ────────────────────────────────
+# Nessus classifies vulnerabilities using CVSS (0–10):
+#   - Critical (9.0–10.0): Remote code execution, privilege escalation
+#   - High     (7.0–8.9): Exploitable flaws, sensitive data leaks
+#   - Medium   (4.0–6.9): Weak encryption, missing patches
+#   - Low      (0.1–3.9): Minor misconfigurations
+#   - Info     (0.0): Non-vulnerability system info
+
+# ────────────────────────────────
+# STEP 6 – Identify CVEs and plugins
+# ────────────────────────────────
+# Each finding lists:
+#   - CVE ID (Common Vulnerabilities & Exposures)
+#   - Plugin ID (unique Nessus script)
+#   - Description & solution link
+
+# Example search:
+#   CVE-2023-38408 → OpenSSH vulnerability
+#   CVE-2021-44228 → Log4Shell (critical Java exploit)
+
+# ────────────────────────────────
+# STEP 7 – Prioritize remediation
+# ────────────────────────────────
+# Strategy:
+#   1. Fix Criticals first (especially public CVEs)
+#   2. Update OS & services (apt/yum update)
+#   3. Patch web-facing applications
+#   4. Document the patch in your tracking file
+
+# Example patch commands:
+sudo apt update && sudo apt upgrade -y
+sudo systemctl restart apache2 nginx ssh
+
+# ────────────────────────────────
+# STEP 8 – Create a vulnerability baseline report
+# ────────────────────────────────
+mkdir -p ~/nessus_reports
+sudo cp /tmp/nessus_report.pdf ~/nessus_reports/day32_report_$(date +%F).pdf
+
+# Optional: list all exported reports
+ls -lh ~/nessus_reports
+
+##############################################
+# ✅ END OF DAY 32 – NESSUS REPORTS
+##############################################
