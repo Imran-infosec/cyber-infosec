@@ -1,0 +1,148 @@
+###############################################
+# Day 30 - Endpoint Threat Correlation (Wazuh + Sysmon + Splunk)
+# Phase 3: Threat Detection & Analysis
+# Objective: Correlate endpoint telemetry (process, network, registry) from
+#            Sysmon and Wazuh in Splunk to detect lateral movement,
+#            persistence, malware execution, and exfiltration.
+###############################################
+
+###############################################
+#0️⃣ Notes & prerequisites
+# - Ensure Sysmon is deployed on Windows endpoints and forwarding to Splunk
+#   (via Universal Forwarder or Wazuh forwarder).
+# - Ensure Wazuh alerts are ingested (wazuh-alerts index or similar).
+# - Ensure network logs (from Day 29) are available in index "botsv3".
+# - Adjust index names and sourcetypes below to match your environment.
+###############################################
+
+###############################################
+# 1️⃣ Confirm Sysmon data is indexed
+###############################################
+index=wazuh sourcetype="xmlwineventlog:microsoft-windows-sysmon/operational"
+| stats count by EventID Image CommandLine
+| sort -count
+| head 20
+
+###############################################
+# 2️⃣ Suspicious Process Creation
+# Detect processes created from Temp/AppData or with suspicious commandlines
+###############################################
+index=wazuh sourcetype="xmlwineventlog:microsoft-windows-sysmon/operational" EventID=1
+| eval cmd=coalesce(CommandLine, "")
+| where like(cmd, "%\\temp%") OR like(cmd, "%AppData%") OR like(cmd, "%.dll%")
+| stats count by Computer User Image ParentImage CommandLine
+| sort -count
+
+# Visualization: Table (Computer, User, Image, ParentImage, CommandLine, count)
+
+###############################################
+# 3️⃣ Lateral Movement Detection (PsExec, WMI, RDP, WMIExec)
+###############################################
+index=wazuh sourcetype="xmlwineventlog:microsoft-windows-sysmon/operational"
+| search CommandLine="*psexec*" OR CommandLine="*wmic*" OR CommandLine="*mstsc*" OR CommandLine="*rundll32*" OR CommandLine="*winrm*"
+| table _time Computer User Image CommandLine
+| sort -_time
+
+# Visualization: Timeline or events table
+
+###############################################
+# 4️⃣ Persistence via Registry Modifications
+# Sysmon EventID 13 logs registry value modification / creation
+###############################################
+index=wazuh sourcetype="xmlwineventlog:microsoft-windows-sysmon/operational" EventID=13
+| search TargetObject="*\\Run*" OR TargetObject="*\\Startup*" OR TargetObject="*\\Services*"
+| table _time Computer User TargetObject Details
+| sort -_time
+
+# Visualization: Table (Computer, TargetObject, Details, _time)
+
+###############################################
+# 5️⃣ Process -> Network Correlation (Identify process initiating network connections)
+# Sysmon EventID 3 is network connection. Correlate with network index (botsv3).
+###############################################
+index=wazuh sourcetype="xmlwineventlog:microsoft-windows-sysmon/operational" EventID=3
+| rex field=Details "DestinationIp:\s*(?<dest_ip>[^\s,]+)" max_match=0
+| stats count by _time Computer dest_ip Image
+| rename dest_ip as DestinationIp
+| join DestinationIp [ search index=botsv3 sourcetype="stream:network_traffic" | fields src_ip dest_ip bytes_out bytes_in dest_port protocol | rename src_ip as SourceIp, dest_ip as DestinationIp ]
+| table _time Computer Image SourceIp DestinationIp dest_port protocol bytes_out bytes_in
+| sort -bytes_out desc
+
+# Explanation: This shows which process (Image) on which Computer initiated
+# network connections and how many bytes transferred (useful for exfiltration detection).
+
+###############################################
+# 6️⃣ Suspicious Parent-Child Relationships
+# Detect when common shells spawn less-common or suspicious binaries
+###############################################
+index=wazuh sourcetype="xmlwineventlog:microsoft-windows-sysmon/operational" EventID=1
+| search ParentImage="*\\powershell.exe" OR ParentImage="*\\cmd.exe" OR ParentImage="*\\explorer.exe"
+| where like(Image, "%regsvr32%") OR like(Image, "%rundll32%") OR like(Image, "%schtasks%")
+| table _time Computer ParentImage Image CommandLine User
+| sort -_time
+
+###############################################
+# 7️⃣ Detect Potential Fileless or Script-based Attacks (PowerShell flagged commands)
+###############################################
+index=wazuh sourcetype="xmlwineventlog:microsoft-windows-sysmon/operational" EventID=1
+| search Image="*\\powershell.exe" OR CommandLine="*-EncodedCommand*" OR CommandLine="*-e *"
+| stats count by Computer User CommandLine Image
+| sort -count
+
+###############################################
+# 8️⃣ Correlate Wazuh Alerts with Sysmon Events (hunt for confirmed alerts + process evidence)
+###############################################
+index=wazuh sourcetype="wazuh:alert"
+| rename srcip as SourceIp, dstip as DestinationIp
+| table _time rule.agent.name rule.id rule.description rule.level SourceIp DestinationIp agent.name
+| join SourceIp [ search index=wazuh sourcetype="xmlwineventlog:microsoft-windows-sysmon/operational" EventID=1 | rex field=CommandLine "(?<ip>\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b)" | fields _time Computer Image CommandLine | rename Computer as agent.name ]
+| table _time agent.name rule.id rule.description Image CommandLine
+
+# Explanation: Join Wazuh alerts to Sysmon process creation events to get process context
+
+###############################################
+# 9️⃣ Timeline of an Incident — Example investigative search
+# Given a suspected compromised host, trace process -> network -> registry -> Wazuh alerts
+###############################################
+| makeresults
+| eval suspect_host="HOSTNAME_OR_IP_HERE"
+| map search="search index=wazuh (sourcetype=\"xmlwineventlog:microsoft-windows-sysmon/operational\" OR sourcetype=\"wazuh:alert\" OR index=botsv3) (Computer=\"$suspect_host$\" OR agent.name=\"$suspect_host$\") | table _time index sourcetype Computer agent.name Image ParentImage CommandLine DestinationIp TargetObject rule.description bytes_out bytes_in"
+
+# Replace HOSTNAME_OR_IP_HERE with the target host to generate a unified timeline of relevant events.
+
+###############################################
+# 10️⃣ Dashboard panels suggestions
+# - Suspicious Process Creation (Section 2)
+# - Lateral Movement (Section 3)
+# - Persistence / Registry Changes (Section 4)
+# - Process-Network Correlation (Section 5)
+# - Parent-Child Relationship (Section 6)
+# - Wazuh Alert Correlation (Section 8)
+
+###############################################
+# 11️⃣ Alert examples to create in Splunk
+###############################################
+# Alert: Suspicious temp-based execution
+index=wazuh sourcetype="xmlwineventlog:microsoft-windows-sysmon/operational" EventID=1
+| where like(CommandLine, "%\\temp%") OR like(CommandLine, "%AppData%")
+| where like(Image, "%powershell%") OR like(Image, "%rundll32%")
+
+# Alert: Registry auto-start persistence
+index=wazuh sourcetype="xmlwineventlog:microsoft-windows-sysmon/operational" EventID=13
+| search TargetObject="*\\Run*" OR TargetObject="*\\Startup*"
+
+# Alert: Process associated with high outbound traffic
+index=wazuh sourcetype="xmlwineventlog:microsoft-windows-sysmon/operational" EventID=3
+| rex field=Details "DestinationIp:\s*(?<dest_ip>[^\s,]+)"
+| stats sum(BytesSent) as total_sent by Computer Image dest_ip
+| where total_sent > 50000000
+
+###############################################
+# 12️⃣ Persistence: Save file as
+# day30_endpoint_threat_correlation.spl
+# (This file contains all useful queries + comments for Day 30)
+###############################################
+
+###############################################
+# End of file
+###############################################
